@@ -1,10 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { BaseEntity } from './BaseEntity';
 
 @Entity()
-export class Province {
-  @PrimaryGeneratedColumn()
-  id!: number;
-
+export class Province extends BaseEntity {
   @Column()
   name!: string;
 

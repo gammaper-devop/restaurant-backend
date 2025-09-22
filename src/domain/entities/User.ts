@@ -1,11 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, Column } from 'typeorm';
+import { BaseEntity } from './BaseEntity';
 import bcrypt from 'bcrypt';
 
 @Entity()
-export class User {
-  @PrimaryGeneratedColumn()
-  id!: number;
-
+export class User extends BaseEntity {
   @Column({ unique: true })
   email!: string;
 
@@ -17,12 +15,6 @@ export class User {
 
   @Column({ nullable: true })
   phone?: string;
-
-  @CreateDateColumn()
-  createdAt!: Date;
-
-  @UpdateDateColumn()
-  updatedAt!: Date;
 
   // Hash password before saving
   async hashPassword(): Promise<void> {

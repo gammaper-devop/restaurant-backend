@@ -1,10 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { BaseEntity } from './BaseEntity';
 
 @Entity()
-export class RestaurantLocation {
-  @PrimaryGeneratedColumn()
-  id!: number;
-
+export class RestaurantLocation extends BaseEntity {
   @Column()
   address!: string;
 
@@ -20,5 +18,5 @@ export class RestaurantLocation {
 
   @ManyToOne('Restaurant')
   @JoinColumn()
-  restaurantId!: any;
+  restaurant!: any;
 }

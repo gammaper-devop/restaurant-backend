@@ -250,4 +250,31 @@ router.put('/profile', authenticateToken, UserController.updateProfile);
  */
 router.put('/change-password', authenticateToken, UserController.changePassword);
 
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   delete:
+ *     summary: Soft delete user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User deleted successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:id', authenticateToken, UserController.delete);
+
 export default router;

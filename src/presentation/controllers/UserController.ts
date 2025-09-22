@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { User } from '../../domain/entities/User';
 import { BadRequestError, NotFoundError, UnauthorizedError } from '../../shared/errors';
 import { ResponseHandler } from '../../shared/responses/ApiResponse';
+import { EntityUtils } from '../../shared/utils/EntityUtils';
 
 export class UserController {
   // Register a new user
@@ -29,8 +30,8 @@ export class UserController {
 
       const userRepository = getRepository(User);
 
-      // Check if user already exists
-      const existingUser = await userRepository.findOne({ where: { email } });
+      // Check if user already exists and is active
+      const existingUser = await EntityUtils.findOneActiveEntity(userRepository, { where: { email } });
       if (existingUser) {
         throw new BadRequestError('User with this email already exists');
       }
@@ -83,7 +84,7 @@ export class UserController {
       }
 
       const userRepository = getRepository(User);
-      const user = await userRepository.findOne({ where: { email } });
+      const user = await EntityUtils.findOneActiveEntity(userRepository, { where: { email } });
 
       if (!user) {
         return res.status(401).json({ message: 'Invalid credentials' });
@@ -121,7 +122,7 @@ export class UserController {
       const userId = (req as any).user.id;
 
       const userRepository = getRepository(User);
-      const user = await userRepository.findOne({ where: { id: userId } });
+      const user = await EntityUtils.findOneActiveEntity(userRepository, { where: { id: userId } });
 
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
@@ -143,7 +144,7 @@ export class UserController {
       const { name, phone } = req.body;
 
       const userRepository = getRepository(User);
-      const user = await userRepository.findOne({ where: { id: userId } });
+      const user = await EntityUtils.findOneActiveEntity(userRepository, { where: { id: userId } });
 
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
@@ -178,7 +179,7 @@ export class UserController {
       }
 
       const userRepository = getRepository(User);
-      const user = await userRepository.findOne({ where: { id: userId } });
+      const user = await EntityUtils.findOneActiveEntity(userRepository, { where: { id: userId } });
 
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
@@ -206,7 +207,7 @@ export class UserController {
   static async getAll(req: Request, res: Response) {
     try {
       const userRepository = getRepository(User);
-      const users = await userRepository.find();
+      const users = await EntityUtils.findActiveEntities(userRepository);
 
       // Return users without passwords
       const usersWithoutPasswords = users.map(user => {
@@ -214,10 +215,48 @@ export class UserController {
         return userWithoutPassword;
       });
 
-      res.json(usersWithoutPasswords);
+      const response = ResponseHandler.success(usersWithoutPasswords, 'Users retrieved successfully');
+      response.response.path = req.path;
+      response.response.method = req.method;
+      res.status(response.statusCode).json(response.response);
     } catch (error) {
-      console.error('Get all users error:', error);
-      res.status(500).json({ message: 'Error fetching users', error: error instanceof Error ? error.message : 'Unknown error' });
+      throw error;
+    }
+  }
+
+  // Soft delete a user
+  static async delete(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        throw new BadRequestError('User ID is required');
+      }
+
+      const userId = parseInt(id);
+      if (isNaN(userId)) {
+        throw new BadRequestError('Invalid user ID format');
+      }
+
+      const userRepository = getRepository(User);
+      
+      // Check if user exists and is active
+      const existsAndActive = await EntityUtils.existsAndIsActive(userRepository, userId);
+      if (!existsAndActive) {
+        throw new NotFoundError('User not found or already inactive');
+      }
+
+      // Perform soft delete
+      const deleted = await EntityUtils.softDelete(userRepository, userId);
+      if (!deleted) {
+        throw new BadRequestError('Failed to delete user');
+      }
+
+      const response = ResponseHandler.success(null, 'User deleted successfully');
+      response.response.path = req.path;
+      response.response.method = req.method;
+      res.status(response.statusCode).json(response.response);
+    } catch (error) {
+      throw error;
     }
   }
 }

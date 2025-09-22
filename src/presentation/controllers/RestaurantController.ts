@@ -1,19 +1,27 @@
 import { Request, Response } from 'express';
 import { getRepository } from 'typeorm';
 import { Restaurant } from '../../domain/entities/Restaurant';
+import { Dish } from '../../domain/entities/Dish';
+import { Menu } from '../../domain/entities/Menu';
+import { RestaurantLocation } from '../../domain/entities/RestaurantLocation';
 import { NotFoundError, BadRequestError } from '../../shared/errors';
 import { ResponseHandler } from '../../shared/responses/ApiResponse';
+import { EntityUtils } from '../../shared/utils/EntityUtils';
 
 export class RestaurantController {
   static async getAll(req: Request, res: Response) {
     try {
       const restaurantRepository = getRepository(Restaurant);
-      const restaurants = await restaurantRepository.find({
+      const restaurants = await EntityUtils.findActiveEntities(restaurantRepository, {
         relations: ['category', 'locations', 'locations.district', 'locations.district.province', 'locations.district.province.city']
       });
-      res.json(restaurants);
+      
+      const response = ResponseHandler.success(restaurants, 'Restaurants retrieved successfully');
+      response.response.path = req.path;
+      response.response.method = req.method;
+      res.status(response.statusCode).json(response.response);
     } catch (error) {
-      res.status(500).json({ message: 'Error fetching restaurants', error });
+      throw error;
     }
   }
 
@@ -30,7 +38,7 @@ export class RestaurantController {
       }
 
       const restaurantRepository = getRepository(Restaurant);
-      const restaurant = await restaurantRepository.findOne({
+      const restaurant = await EntityUtils.findOneActiveEntity(restaurantRepository, {
         where: { id: restaurantId },
         relations: ['category', 'locations', 'locations.district', 'locations.district.province', 'locations.district.province.city', 'dishes', 'menus']
       });
@@ -74,25 +82,124 @@ export class RestaurantController {
   static async update(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      if (!id) return res.status(400).json({ message: 'ID is required' });
+      if (!id) {
+        throw new BadRequestError('Restaurant ID is required');
+      }
+
+      const restaurantId = parseInt(id);
+      if (isNaN(restaurantId)) {
+        throw new BadRequestError('Invalid restaurant ID format');
+      }
+
       const restaurantRepository = getRepository(Restaurant);
-      await restaurantRepository.update(parseInt(id), req.body);
-      const updatedRestaurant = await restaurantRepository.findOneBy({ id: parseInt(id) });
-      res.json(updatedRestaurant);
+      
+      // Check if restaurant exists and is active
+      const existsAndActive = await EntityUtils.existsAndIsActive(restaurantRepository, restaurantId);
+      if (!existsAndActive) {
+        throw new NotFoundError('Restaurant not found or inactive');
+      }
+
+      await restaurantRepository.update(restaurantId, req.body);
+      const updatedRestaurant = await EntityUtils.findOneActiveEntity(restaurantRepository, {
+        where: { id: restaurantId },
+        relations: ['category', 'locations']
+      });
+
+      const response = ResponseHandler.success(updatedRestaurant, 'Restaurant updated successfully');
+      response.response.path = req.path;
+      response.response.method = req.method;
+      res.status(response.statusCode).json(response.response);
     } catch (error) {
-      res.status(500).json({ message: 'Error updating restaurant', error });
+      throw error;
     }
   }
 
   static async delete(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      if (!id) return res.status(400).json({ message: 'ID is required' });
+      if (!id) {
+        throw new BadRequestError('Restaurant ID is required');
+      }
+
+      const restaurantId = parseInt(id);
+      if (isNaN(restaurantId)) {
+        throw new BadRequestError('Invalid restaurant ID format');
+      }
+
       const restaurantRepository = getRepository(Restaurant);
-      await restaurantRepository.delete(parseInt(id));
-      res.status(204).send();
+      
+      // Check if restaurant exists and is active
+      const existsAndActive = await EntityUtils.existsAndIsActive(restaurantRepository, restaurantId);
+      if (!existsAndActive) {
+        throw new NotFoundError('Restaurant not found or already inactive');
+      }
+
+      // Perform cascade soft delete
+      await RestaurantController.performCascadeSoftDelete(restaurantId);
+
+      const response = ResponseHandler.success(null, 'Restaurant and related entities deleted successfully');
+      response.response.path = req.path;
+      response.response.method = req.method;
+      res.status(response.statusCode).json(response.response);
     } catch (error) {
-      res.status(500).json({ message: 'Error deleting restaurant', error });
+      throw error;
+    }
+  }
+
+  // Helper method for cascade soft delete
+  private static async performCascadeSoftDelete(restaurantId: number): Promise<void> {
+    try {
+      // 1. Soft delete all dishes for this restaurant
+      try {
+        const dishRepository = getRepository(Dish);
+        const dishes = await dishRepository.find({
+          where: { restaurant: { id: restaurantId }, active: true },
+        });
+        
+        if (dishes.length > 0) {
+          const dishIds = dishes.map(dish => dish.id);
+          await EntityUtils.softDeleteMany(dishRepository, dishIds);
+        }
+      } catch (err) {
+        console.warn('Error soft deleting dishes:', err);
+      }
+
+      // 2. Soft delete all menus for this restaurant
+      try {
+        const menuRepository = getRepository(Menu);
+        const menus = await menuRepository.find({
+          where: { restaurant: { id: restaurantId }, active: true },
+        });
+        
+        if (menus.length > 0) {
+          const menuIds = menus.map(menu => menu.id);
+          await EntityUtils.softDeleteMany(menuRepository, menuIds);
+        }
+      } catch (err) {
+        console.warn('Error soft deleting menus:', err);
+      }
+
+      // 3. Soft delete all restaurant locations
+      try {
+        const locationRepository = getRepository(RestaurantLocation);
+        const locations = await locationRepository.find({
+          where: { restaurant: { id: restaurantId }, active: true },
+        });
+        
+        if (locations.length > 0) {
+          const locationIds = locations.map(location => location.id);
+          await EntityUtils.softDeleteMany(locationRepository, locationIds);
+        }
+      } catch (err) {
+        console.warn('Error soft deleting locations:', err);
+      }
+
+      // 4. Finally, soft delete the restaurant itself
+      const restaurantRepository = getRepository(Restaurant);
+      await EntityUtils.softDelete(restaurantRepository, restaurantId);
+    } catch (error) {
+      console.error('Error in cascade soft delete:', error);
+      throw error;
     }
   }
 
@@ -114,6 +221,8 @@ export class RestaurantController {
         .leftJoinAndSelect('district.province', 'province')
         .leftJoinAndSelect('province.city', 'city')
         .leftJoinAndSelect('restaurant.category', 'category')
+        .where('location.active = :active', { active: true })
+        .andWhere('restaurant.active = :restaurantActive', { restaurantActive: true })
         .select([
           'location.id',
           'location.address',

@@ -1,11 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { Entity, Column, OneToMany } from 'typeorm';
+import { BaseEntity } from './BaseEntity';
 import type { City } from './City';
 
 @Entity()
-export class Country {
-  @PrimaryGeneratedColumn()
-  id!: number;
-
+export class Country extends BaseEntity {
   @Column()
   name!: string;
 

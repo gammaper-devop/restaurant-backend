@@ -1,13 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { BaseEntity } from './BaseEntity';
 import { Category } from './Category';
 import { City } from './City';
 import { Dish } from './Dish';
 import { Menu } from './Menu';
 
 @Entity()
-export class Restaurant {
-  @PrimaryGeneratedColumn()
-  id!: number;
+export class Restaurant extends BaseEntity {
 
   @Column()
   name!: string;
