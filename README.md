@@ -6,6 +6,8 @@ A Node.js backend application for restaurant management using microservices arch
 
 ### Core Functionality
 - **Restaurant Management** with geolocation support
+- **Restaurant Location Management** with operating hours and real-time status
+- **Operating Hours System** with smart scheduling and validation
 - **Category, Country, City, Province & District** hierarchical management
 - **Dish and Menu Management** with file upload support
 - **User Management** with registration and authentication
@@ -13,6 +15,9 @@ A Node.js backend application for restaurant management using microservices arch
 
 ### Advanced Features
 - **JWT Authentication** for secure API access
+- **Real-time Opening Status** - Automatically calculates if restaurants are open
+- **Smart Operating Hours** - Support for midnight crossover and custom schedules
+- **Operating Hours Validation** - Prevents invalid time configurations
 - **Soft Delete System** - Data is never permanently lost
 - **Audit Trail** - Automatic created_at and updated_at timestamps
 - **Clean Architecture** with proper separation of concerns
@@ -114,11 +119,27 @@ The server will start on port 3000 (or the port specified in .env).
 - 🔒 `PUT /api/users/change-password` - Change password
 - 🔒 `DELETE /api/users/:id` - Soft delete user
 
-### 🗺️ Locations
+### 📍 Restaurant Locations & Operating Hours
+- 🔓 `GET /api/restaurants/locations` - Get all restaurant locations with current status
+- 🔓 `GET /api/restaurants/locations/:id` - Get specific location with opening status
+- 🔓 `GET /api/restaurants/:restaurantId/locations` - Get all locations for a restaurant
+- 🔓 `GET /api/restaurants/locations/currently-open` - Get all currently open locations
+- 🔓 `GET /api/restaurants/locations/:id/is-open` - Check if location is open now
+- 🔓 `GET /api/restaurants/locations/:id/is-open-at/:datetime` - Check if open at specific time
+- 🔒 `POST /api/restaurants/locations` - Create new restaurant location
+- 🔒 `PUT /api/restaurants/locations/:id` - Update restaurant location
+- 🔒 `PATCH /api/restaurants/locations/:id/operating-hours` - Update only operating hours
+- 🔒 `DELETE /api/restaurants/locations/:id` - Soft delete restaurant location
+
+### 🗺️ Geographic Locations
 - 🔓 `GET /api/locations/countries` - Get all active countries
 - 🔒 `POST /api/locations/countries` - Create new country
 - 🔓 `GET /api/locations/cities` - Get all active cities
 - 🔒 `POST /api/locations/cities` - Create new city
+- 🔓 `GET /api/locations/provinces` - Get all active provinces
+- 🔓 `GET /api/locations/provinces/city/:cityId` - Get provinces by city
+- 🔓 `GET /api/locations/districts` - Get all active districts
+- 🔓 `GET /api/locations/districts/province/:provinceId` - Get districts by province
 
 ### 🍽️ Dishes
 - 🔓 `GET /api/dishes` - Get all active dishes
@@ -137,23 +158,27 @@ The server will start on port 3000 (or the port specified in .env).
 ```
 src/
 ├── domain/
-│   └── entities/              # Database entities (with BaseEntity)
-│       ├── BaseEntity.ts      # Base class with common fields
-│       ├── Restaurant.ts      # Restaurant entity
-│       ├── Category.ts        # Category entity
-│       ├── User.ts           # User entity
-│       └── ...
+│   ├── entities/              # Database entities (with BaseEntity)
+│   │   ├── BaseEntity.ts      # Base class with common fields
+│   │   ├── Restaurant.ts      # Restaurant entity
+│   │   ├── RestaurantLocation.ts # Restaurant location with operating hours
+│   │   ├── Category.ts        # Category entity
+│   │   ├── User.ts           # User entity
+│   │   └── ...
+│   └── types/                # Domain type definitions
+│       └── OperatingHours.ts  # Operating hours interfaces
 ├── application/
 │   └── services/             # Business logic services
 │       └── ErrorLoggingService.ts
 ├── presentation/
 │   ├── controllers/          # HTTP controllers
 │   │   ├── RestaurantController.ts
+│   │   ├── RestaurantLocationController.ts # Location & hours management
 │   │   ├── CategoryController.ts
 │   │   ├── UserController.ts
 │   │   └── ...
 │   ├── routes/              # API routes with JWT protection
-│   │   ├── restaurantRoutes.ts
+│   │   ├── restaurantRoutes.ts # Includes location routes
 │   │   ├── categoryRoutes.ts
 │   │   ├── userRoutes.ts
 │   │   └── ...
@@ -163,7 +188,8 @@ src/
 │       └── upload.ts        # File upload
 ├── shared/
 │   ├── utils/               # Shared utilities
-│   │   └── EntityUtils.ts   # Soft delete utilities
+│   │   ├── EntityUtils.ts   # Soft delete utilities
+│   │   └── OperatingHoursUtils.ts # Operating hours logic
 │   ├── errors/              # Custom error classes
 │   └── responses/           # API response handlers
 └── config/
@@ -193,6 +219,140 @@ src/
 - **Repository Pattern** - Data access abstraction
 - **Soft Delete Pattern** - Data preservation
 - **BaseEntity Pattern** - DRY principle implementation
+
+## ⏰ Operating Hours System
+
+### Overview
+The operating hours system provides comprehensive management of restaurant location schedules with real-time status checking and intelligent validation.
+
+### Features
+- **Smart Scheduling**: Support for different hours each day of the week
+- **Midnight Crossover**: Handle schedules like "22:00 - 02:00" that cross midnight
+- **Closed Days**: Full support for locations closed on specific days
+- **Real-time Status**: Automatic calculation of current opening status
+- **Validation**: Prevents invalid time formats and logical errors
+- **Next Opening**: Calculate the next time a location will be open
+
+### Data Structure
+
+```typescript
+interface DaySchedule {
+  open: string;    // "HH:MM" format (24-hour)
+  close: string;   // "HH:MM" format (24-hour)
+  closed: boolean; // true if closed all day
+}
+
+interface OperatingHours {
+  monday: DaySchedule;
+  tuesday: DaySchedule;
+  wednesday: DaySchedule;
+  thursday: DaySchedule;
+  friday: DaySchedule;
+  saturday: DaySchedule;
+  sunday: DaySchedule;
+}
+```
+
+### Usage Examples
+
+#### Create Location with Custom Hours
+```bash
+curl -X POST http://localhost:3000/api/restaurants/locations \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "address": "123 Main St",
+    "latitude": -12.0464,
+    "longitude": -77.0428,
+    "district": 1,
+    "restaurant": 1,
+    "operatingHours": {
+      "monday": {"open": "08:00", "close": "22:00", "closed": false},
+      "tuesday": {"open": "08:00", "close": "22:00", "closed": false},
+      "wednesday": {"open": "08:00", "close": "22:00", "closed": false},
+      "thursday": {"open": "08:00", "close": "22:00", "closed": false},
+      "friday": {"open": "08:00", "close": "23:00", "closed": false},
+      "saturday": {"open": "10:00", "close": "23:00", "closed": false},
+      "sunday": {"open": "00:00", "close": "00:00", "closed": true}
+    }
+  }'
+```
+
+#### Check Current Opening Status
+```bash
+# Check if location is open right now
+curl http://localhost:3000/api/restaurants/locations/1/is-open
+
+# Response:
+{
+  "success": true,
+  "data": {
+    "locationId": 1,
+    "isCurrentlyOpen": true,
+    "currentTime": "2024-01-15T14:30:00.000Z",
+    "nextOpeningTime": null
+  }
+}
+```
+
+#### Update Only Operating Hours
+```bash
+curl -X PATCH http://localhost:3000/api/restaurants/locations/1/operating-hours \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "operatingHours": {
+      "monday": {"open": "07:00", "close": "23:00", "closed": false}
+      // ... other days
+    }
+  }'
+```
+
+#### Get All Currently Open Locations
+```bash
+curl http://localhost:3000/api/restaurants/locations/currently-open
+
+# Returns array of locations that are open right now
+```
+
+#### Check Opening at Specific Time
+```bash
+# Check if open on Christmas Day at 3 PM
+curl "http://localhost:3000/api/restaurants/locations/1/is-open-at/2024-12-25T15:00:00Z"
+```
+
+### Advanced Features
+
+#### Midnight Crossover Support
+```json
+{
+  "friday": {
+    "open": "18:00",
+    "close": "02:00",  // Closes at 2 AM Saturday
+    "closed": false
+  }
+}
+```
+
+#### Default Operating Hours
+New locations automatically get default hours (9 AM - 10 PM, Monday-Sunday) if not specified.
+
+#### Validation Rules
+- Time format must be "HH:MM" in 24-hour format
+- All days must be specified
+- If `closed: true`, open/close times are ignored
+- Opening and closing times cannot be identical (unless closed)
+
+### Testing
+
+Run the operating hours test suite:
+```bash
+# Make test script executable
+chmod +x test-operating-hours.sh
+
+# Run tests
+./test-operating-hours.sh
+```
 
 ## 🔐 Authentication
 
@@ -277,6 +437,51 @@ curl -X DELETE http://localhost:3000/api/restaurants/1 \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
+### Restaurant Location Management
+
+```bash
+# Get all restaurant locations with current opening status
+curl http://localhost:3000/api/restaurants/locations
+
+# Get only currently open locations
+curl http://localhost:3000/api/restaurants/locations/currently-open
+
+# Create location with custom operating hours (requires JWT)
+curl -X POST http://localhost:3000/api/restaurants/locations \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "address": "123 Pizza Street",
+    "phone": "+1234567890",
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "district": 1,
+    "restaurant": 1,
+    "operatingHours": {
+      "monday": {"open": "11:00", "close": "23:00", "closed": false},
+      "tuesday": {"open": "11:00", "close": "23:00", "closed": false},
+      "wednesday": {"open": "11:00", "close": "23:00", "closed": false},
+      "thursday": {"open": "11:00", "close": "23:00", "closed": false},
+      "friday": {"open": "11:00", "close": "24:00", "closed": false},
+      "saturday": {"open": "12:00", "close": "24:00", "closed": false},
+      "sunday": {"open": "00:00", "close": "00:00", "closed": true}
+    }
+  }'
+
+# Check if location is currently open
+curl http://localhost:3000/api/restaurants/locations/1/is-open
+
+# Update only operating hours (requires JWT)
+curl -X PATCH http://localhost:3000/api/restaurants/locations/1/operating-hours \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "operatingHours": {
+      "sunday": {"open": "12:00", "close": "22:00", "closed": false}
+    }
+  }'
+```
+
 ### User Registration & Authentication
 
 ```bash
@@ -330,6 +535,31 @@ CREATE TABLE restaurants (
     created_at TIMESTAMP NOT NULL DEFAULT now(),
     updated_at TIMESTAMP NOT NULL DEFAULT now()
 );
+
+-- Restaurant locations with operating hours
+CREATE TABLE restaurant_locations (
+    id SERIAL PRIMARY KEY,
+    address VARCHAR NOT NULL,
+    phone TEXT,
+    latitude DECIMAL(10, 7) NOT NULL,
+    longitude DECIMAL(10, 7) NOT NULL,
+    "operatingHours" JSON NOT NULL DEFAULT '{
+      "monday": {"open": "09:00", "close": "22:00", "closed": false},
+      "tuesday": {"open": "09:00", "close": "22:00", "closed": false},
+      "wednesday": {"open": "09:00", "close": "22:00", "closed": false},
+      "thursday": {"open": "09:00", "close": "22:00", "closed": false},
+      "friday": {"open": "09:00", "close": "22:00", "closed": false},
+      "saturday": {"open": "10:00", "close": "22:00", "closed": false},
+      "sunday": {"open": "10:00", "close": "21:00", "closed": false}
+    }',
+    "districtId" INTEGER REFERENCES districts(id),
+    "restaurantId" INTEGER REFERENCES restaurants(id),
+    
+    -- Standard audit fields (via BaseEntity)
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP NOT NULL DEFAULT now()
+);
 ```
 
 ### Soft Delete Queries
@@ -343,6 +573,32 @@ SELECT * FROM restaurants WHERE active = false;
 
 -- Restore deleted record
 UPDATE restaurants SET active = true WHERE id = 1;
+```
+
+### Operating Hours Queries
+
+```sql
+-- Get location with current day's hours
+SELECT 
+  id, address,
+  "operatingHours"->>'monday' as monday_hours,
+  "operatingHours"->>'tuesday' as tuesday_hours
+FROM restaurant_locations 
+WHERE active = true;
+
+-- Update operating hours for a location
+UPDATE restaurant_locations 
+SET "operatingHours" = '{
+  "monday": {"open": "08:00", "close": "23:00", "closed": false},
+  "tuesday": {"open": "08:00", "close": "23:00", "closed": false}
+  // ... rest of the week
+}'
+WHERE id = 1;
+
+-- Query locations by operating hours (find locations open on Monday)
+SELECT * FROM restaurant_locations 
+WHERE active = true 
+AND ("operatingHours"->>'monday')::json->>'closed' = 'false';
 ```
 
 ## 📝 API Documentation
@@ -378,6 +634,46 @@ Errors are returned with consistent structure:
   "statusCode": 400,
   "timestamp": "2024-01-01T00:00:00.000Z"
 }
+```
+
+## 🧪 Testing
+
+### Available Test Scripts
+
+1. **General API Testing**
+   ```bash
+   # Test various API endpoints
+   ./test-api.sh
+   ```
+
+2. **Operating Hours Testing**
+   ```bash
+   # Test operating hours functionality
+   chmod +x test-operating-hours.sh
+   ./test-operating-hours.sh
+   ```
+
+### Manual Testing
+
+Use the Swagger UI for interactive testing:
+```
+http://localhost:3000/api-docs
+```
+
+### Testing Operating Hours Features
+
+```bash
+# Test creating location with hours
+curl -X POST http://localhost:3000/api/restaurants/locations -H "Content-Type: application/json" -d '{...}'
+
+# Test real-time status checking
+curl http://localhost:3000/api/restaurants/locations/1/is-open
+
+# Test getting all open locations
+curl http://localhost:3000/api/restaurants/locations/currently-open
+
+# Test historical/future time checking
+curl "http://localhost:3000/api/restaurants/locations/1/is-open-at/2024-12-25T15:00:00Z"
 ```
 
 ## Contributing

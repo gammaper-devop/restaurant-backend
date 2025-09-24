@@ -541,4 +541,169 @@ router.put('/locations/:id', authenticateToken, RestaurantLocationController.upd
  */
 router.delete('/locations/:id', authenticateToken, RestaurantLocationController.delete);
 
+// Operating Hours Routes
+
+/**
+ * @swagger
+ * /api/restaurants/locations/{id}/operating-hours:
+ *   patch:
+ *     summary: Update operating hours for a restaurant location
+ *     tags: [Restaurant Locations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Location ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - operatingHours
+ *             properties:
+ *               operatingHours:
+ *                 type: object
+ *                 properties:
+ *                   monday:
+ *                     $ref: '#/components/schemas/DaySchedule'
+ *                   tuesday:
+ *                     $ref: '#/components/schemas/DaySchedule'
+ *                   wednesday:
+ *                     $ref: '#/components/schemas/DaySchedule'
+ *                   thursday:
+ *                     $ref: '#/components/schemas/DaySchedule'
+ *                   friday:
+ *                     $ref: '#/components/schemas/DaySchedule'
+ *                   saturday:
+ *                     $ref: '#/components/schemas/DaySchedule'
+ *                   sunday:
+ *                     $ref: '#/components/schemas/DaySchedule'
+ *     responses:
+ *       200:
+ *         description: Operating hours updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/RestaurantLocation'
+ *       400:
+ *         description: Invalid operating hours format
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Location not found
+ */
+router.patch('/locations/:id/operating-hours', authenticateToken, RestaurantLocationController.updateOperatingHours);
+
+/**
+ * @swagger
+ * /api/restaurants/locations/{id}/is-open:
+ *   get:
+ *     summary: Check if a restaurant location is currently open
+ *     tags: [Restaurant Locations]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Location ID
+ *     responses:
+ *       200:
+ *         description: Current opening status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 locationId:
+ *                   type: integer
+ *                 isCurrentlyOpen:
+ *                   type: boolean
+ *                 currentTime:
+ *                   type: string
+ *                   format: date-time
+ *                 nextOpeningTime:
+ *                   type: string
+ *                   format: date-time
+ *                   nullable: true
+ *       404:
+ *         description: Location not found
+ */
+router.get('/locations/:id/is-open', RestaurantLocationController.isCurrentlyOpen);
+
+/**
+ * @swagger
+ * /api/restaurants/locations/{id}/is-open-at/{datetime}:
+ *   get:
+ *     summary: Check if a restaurant location is open at a specific date/time
+ *     tags: [Restaurant Locations]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Location ID
+ *       - in: path
+ *         name: datetime
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: ISO 8601 datetime to check
+ *         example: "2023-12-25T14:30:00Z"
+ *     responses:
+ *       200:
+ *         description: Opening status at specified time
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 locationId:
+ *                   type: integer
+ *                 checkDateTime:
+ *                   type: string
+ *                   format: date-time
+ *                 isOpen:
+ *                   type: boolean
+ *       400:
+ *         description: Invalid datetime format
+ *       404:
+ *         description: Location not found
+ */
+router.get('/locations/:id/is-open-at/:datetime', RestaurantLocationController.isOpenAt);
+
+/**
+ * @swagger
+ * /api/restaurants/locations/currently-open:
+ *   get:
+ *     summary: Get all currently open restaurant locations
+ *     tags: [Restaurant Locations]
+ *     responses:
+ *       200:
+ *         description: List of currently open restaurant locations
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 allOf:
+ *                   - $ref: '#/components/schemas/RestaurantLocation'
+ *                   - type: object
+ *                     properties:
+ *                       isCurrentlyOpen:
+ *                         type: boolean
+ *                         example: true
+ *       500:
+ *         description: Server error
+ */
+router.get('/locations/currently-open', RestaurantLocationController.getCurrentlyOpenLocations);
+
 export default router;

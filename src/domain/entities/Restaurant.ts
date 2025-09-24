@@ -4,6 +4,7 @@ import { Category } from './Category';
 import { City } from './City';
 import { Dish } from './Dish';
 import { Menu } from './Menu';
+import { RestaurantLocation } from './RestaurantLocation';
 
 @Entity()
 export class Restaurant extends BaseEntity {
@@ -13,9 +14,6 @@ export class Restaurant extends BaseEntity {
 
   @Column({ nullable: true })
   logo!: string; // URL or path to logo image
-
-  @Column({ type: 'text', nullable: true })
-  phone!: string;
 
   @ManyToOne('Category')
   @JoinColumn()
@@ -28,5 +26,5 @@ export class Restaurant extends BaseEntity {
   menus!: Menu[];
 
   @OneToMany('RestaurantLocation', 'restaurant')
-  locations!: any[];
+  locations!: RestaurantLocation[];
 }

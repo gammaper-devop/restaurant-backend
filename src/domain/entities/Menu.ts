@@ -1,5 +1,6 @@
 import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './BaseEntity';
+import { Restaurant } from './Restaurant';
 
 @Entity()
 export class Menu extends BaseEntity {
@@ -11,5 +12,5 @@ export class Menu extends BaseEntity {
 
   @ManyToOne('Restaurant')
   @JoinColumn()
-  restaurant!: any;
+  restaurant!: Restaurant;
 }

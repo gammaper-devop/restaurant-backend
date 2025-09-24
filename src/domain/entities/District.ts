@@ -1,5 +1,6 @@
 import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './BaseEntity';
+import { Province } from './Province';
 
 @Entity()
 export class District extends BaseEntity {
@@ -8,5 +9,5 @@ export class District extends BaseEntity {
 
   @ManyToOne('Province')
   @JoinColumn()
-  province!: any;
+  province!: Province;
 }
