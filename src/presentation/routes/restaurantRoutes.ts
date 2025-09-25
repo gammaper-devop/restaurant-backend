@@ -187,6 +187,61 @@ router.get('/nearby', RestaurantController.getNearby);
 
 /**
  * @swagger
+ * /api/restaurants/category/{categoryId}:
+ *   get:
+ *     summary: Get restaurants by category
+ *     tags: [Restaurants]
+ *     parameters:
+ *       - in: path
+ *         name: categoryId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Category ID
+ *       - in: query
+ *         name: includeInactive
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: ["true", "false"]
+ *           default: "false"
+ *         description: Include inactive restaurants (default is false - only active restaurants)
+ *     responses:
+ *       200:
+ *         description: List of restaurants in the specified category
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Restaurant'
+ *                 message:
+ *                   type: string
+ *                   example: "Found 3 active restaurant(s) in category \"Italian Cuisine\""
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *                 path:
+ *                   type: string
+ *                 method:
+ *                   type: string
+ *       400:
+ *         description: Bad request - invalid category ID
+ *       404:
+ *         description: Category not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/category/:categoryId', RestaurantController.getByCategory);
+
+/**
+ * @swagger
  * /api/restaurants/{id}:
  *   get:
  *     summary: Get restaurant by ID

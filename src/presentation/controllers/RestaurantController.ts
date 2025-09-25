@@ -57,6 +57,60 @@ export class RestaurantController {
     }
   }
 
+  static async getByCategory(req: Request, res: Response) {
+    try {
+      const { categoryId } = req.params;
+      const { includeInactive } = req.query;
+      
+      if (!categoryId) {
+        throw new BadRequestError('Category ID is required');
+      }
+
+      const categoryIdInt = parseInt(categoryId);
+      if (isNaN(categoryIdInt)) {
+        throw new BadRequestError('Invalid category ID format');
+      }
+
+      const restaurantRepository = getRepository(Restaurant);
+      
+      // Determine if we should include inactive restaurants
+      const shouldIncludeInactive = includeInactive === 'true';
+      
+      let restaurants;
+      if (shouldIncludeInactive) {
+        // Get all restaurants (active and inactive) for this category
+        restaurants = await restaurantRepository.find({
+          where: { category: { id: categoryIdInt } },
+          relations: ['category', 'locations', 'locations.district', 'locations.district.province', 'locations.district.province.city']
+        });
+      } else {
+        // Get only active restaurants for this category
+        restaurants = await EntityUtils.findActiveEntities(restaurantRepository, {
+          where: { category: { id: categoryIdInt } },
+          relations: ['category', 'locations', 'locations.district', 'locations.district.province', 'locations.district.province.city']
+        });
+      }
+      
+      // Create response message
+      const statusText = shouldIncludeInactive ? 'all' : 'active';
+      let message: string;
+      
+      if (restaurants.length > 0) {
+        const categoryName = restaurants[0]?.category?.name || 'Unknown';
+        message = `Found ${restaurants.length} ${statusText} restaurant(s) in category "${categoryName}"`;
+      } else {
+        message = `No ${statusText} restaurants found for category ID ${categoryIdInt}`;
+      }
+      
+      const response = ResponseHandler.success(restaurants, message);
+      response.response.path = req.path;
+      response.response.method = req.method;
+      res.status(response.statusCode).json(response.response);
+    } catch (error) {
+      throw error;
+    }
+  }
+
   static async create(req: Request, res: Response) {
     try {
       const { name, category } = req.body;

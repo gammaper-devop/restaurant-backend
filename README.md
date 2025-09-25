@@ -98,6 +98,7 @@ The server will start on port 3000 (or the port specified in .env).
 ### 🏢 Restaurants
 - 🔓 `GET /api/restaurants` - Get all active restaurants
 - 🔓 `GET /api/restaurants/:id` - Get restaurant by ID
+- 🔓 `GET /api/restaurants/category/:categoryId` - Get restaurants by category (with optional inactive filter)
 - 🔓 `GET /api/restaurants/nearby?lat=...&lng=...&radius=...` - Find nearby restaurants
 - 🔒 `POST /api/restaurants` - Create new restaurant
 - 🔒 `PUT /api/restaurants/:id` - Update restaurant
@@ -418,6 +419,12 @@ export class Restaurant extends BaseEntity {
 ```bash
 # Get all active restaurants
 curl http://localhost:3000/api/restaurants
+
+# Get active restaurants by category (e.g., Italian restaurants)
+curl http://localhost:3000/api/restaurants/category/1
+
+# Get ALL restaurants (including inactive) by category
+curl "http://localhost:3000/api/restaurants/category/1?includeInactive=true"
 
 # Search nearby restaurants (10km radius)
 curl "http://localhost:3000/api/restaurants/nearby?lat=40.7128&lng=-74.0060&radius=10"
