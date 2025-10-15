@@ -8,6 +8,9 @@ export class Dish extends BaseEntity {
   name!: string;
 
   @Column({ nullable: true })
+  description!: string;
+
+  @Column({ nullable: true })
   image!: string; // URL or path to image
 
   @Column('decimal', { precision: 10, scale: 2 })
