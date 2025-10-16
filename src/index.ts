@@ -79,16 +79,27 @@ app.get('/test', (req, res) => {
 });
 
 // Database connection
-createConnection({
-  type: 'postgres',
+// Render provides DATABASE_URL, fallback to individual env vars
+const databaseConfig = process.env.DATABASE_URL ? {
+  type: 'postgres' as const,
+  url: process.env.DATABASE_URL,
+  entities: [Restaurant, RestaurantLocation, Category, Country, City, Province, District, Dish, Menu, User, ErrorLog],
+  synchronize: true,
+  ssl: {
+    rejectUnauthorized: false
+  }
+} : {
+  type: 'postgres' as const,
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'password',
   database: process.env.DB_NAME || 'restaurant_db',
   entities: [Restaurant, RestaurantLocation, Category, Country, City, Province, District, Dish, Menu, User, ErrorLog],
-  synchronize: true, // In production, use migrations
-}).then(() => {
+  synchronize: true
+};
+
+createConnection(databaseConfig)
   console.log('Database connected');
 
   // Import routes and middleware after database connection is established

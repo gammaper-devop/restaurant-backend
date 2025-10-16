@@ -6,7 +6,11 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start:prod": "NODE_ENV=production node dist/index.js",
+    "deploy": "./deploy.sh",
+    "docker:build": "docker build -t restaurant-api .",
+    "docker:run": "docker run -p 3000:3000 restaurant-api"
   },
   "keywords": [],
   "author": "",
