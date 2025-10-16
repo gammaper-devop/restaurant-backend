@@ -81,7 +81,7 @@ app.get('/test', (req, res) => {
 // Database connection
 // Render provides DATABASE_URL, fallback to individual env vars
 const databaseConfig = process.env.DATABASE_URL ? {
-  type: 'postgres' as const,
+  type: 'postgres',
   url: process.env.DATABASE_URL,
   entities: [Restaurant, RestaurantLocation, Category, Country, City, Province, District, Dish, Menu, User, ErrorLog],
   synchronize: true,
@@ -89,7 +89,7 @@ const databaseConfig = process.env.DATABASE_URL ? {
     rejectUnauthorized: false
   }
 } : {
-  type: 'postgres' as const,
+  type: 'postgres',
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
   username: process.env.DB_USERNAME || 'postgres',
@@ -99,36 +99,43 @@ const databaseConfig = process.env.DATABASE_URL ? {
   synchronize: true
 };
 
-createConnection(databaseConfig)
-  console.log('Database connected');
+async function start() {
+  try {
+    await createConnection(databaseConfig as any);
+    console.log('Database connected');
 
-  // Import routes and middleware after database connection is established
-  const restaurantRoutes = require('./presentation/routes/restaurantRoutes').default;
-  const categoryRoutes = require('./presentation/routes/categoryRoutes').default;
-  const locationRoutes = require('./presentation/routes/locationRoutes').default;
-  const dishRoutes = require('./presentation/routes/dishRoutes').default;
-  const menuRoutes = require('./presentation/routes/menuRoutes').default;
-  const userRoutes = require('./presentation/routes/userRoutes').default;
-  const errorLogRoutes = require('./presentation/routes/errorLogRoutes').default;
-  const { errorHandler } = require('./presentation/middlewares/errorHandler');
+    // Import routes and middleware after database connection is established
+    const restaurantRoutes = require('./presentation/routes/restaurantRoutes').default;
+    const categoryRoutes = require('./presentation/routes/categoryRoutes').default;
+    const locationRoutes = require('./presentation/routes/locationRoutes').default;
+    const dishRoutes = require('./presentation/routes/dishRoutes').default;
+    const menuRoutes = require('./presentation/routes/menuRoutes').default;
+    const userRoutes = require('./presentation/routes/userRoutes').default;
+    const errorLogRoutes = require('./presentation/routes/errorLogRoutes').default;
+    const { errorHandler } = require('./presentation/middlewares/errorHandler');
 
-  // Routes
-  app.use('/api/restaurants', restaurantRoutes);
-  app.use('/api/categories', categoryRoutes);
-  app.use('/api/locations', locationRoutes);
-  app.use('/api/dishes', dishRoutes);
-  app.use('/api/menus', menuRoutes);
-  app.use('/api/users', userRoutes);
-  app.use('/api/error-logs', errorLogRoutes);
+    // Routes
+    app.use('/api/restaurants', restaurantRoutes);
+    app.use('/api/categories', categoryRoutes);
+    app.use('/api/locations', locationRoutes);
+    app.use('/api/dishes', dishRoutes);
+    app.use('/api/menus', menuRoutes);
+    app.use('/api/users', userRoutes);
+    app.use('/api/error-logs', errorLogRoutes);
 
-  // Swagger documentation
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+    // Swagger documentation
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
-  // Error handling middleware (must be last)
-  app.use(errorHandler);
+    // Error handling middleware (must be last)
+    app.use(errorHandler);
 
-  // Start server
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-}).catch(error => console.log(error));
+    // Start server
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+start();
