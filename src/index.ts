@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import { createConnection } from 'typeorm';
 import { Restaurant } from './domain/entities/Restaurant';
 import { RestaurantLocation } from './domain/entities/RestaurantLocation';
@@ -48,6 +49,29 @@ app.use(cors(corsOptions));
 
 // Middleware
 app.use(express.json());
+
+// Serve static files from public directory
+app.use('/static', express.static(path.join(__dirname, '../public')));
+
+// Specific route for images with better error handling
+app.get('/images/:type/:filename', (req, res) => {
+  const { type, filename } = req.params;
+  const allowedTypes = ['dishes', 'restaurants'];
+  
+  if (!allowedTypes.includes(type)) {
+    return res.status(400).json({ error: 'Invalid image type' });
+  }
+  
+  const imagePath = path.join(__dirname, '../public/images', type, filename);
+  
+  res.sendFile(imagePath, (err) => {
+    if (err) {
+      console.log(`Image not found: ${imagePath}`);
+      // Return a default image URL or error
+      res.status(404).json({ error: 'Image not found' });
+    }
+  });
+});
 
 // Test route
 app.get('/test', (req, res) => {

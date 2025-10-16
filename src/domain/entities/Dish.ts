@@ -11,7 +11,7 @@ export class Dish extends BaseEntity {
   description!: string;
 
   @Column({ nullable: true })
-  image!: string; // URL or path to image
+  image!: string; // Filename only (e.g., "ceviche.jpg") - URL is constructed by frontend
 
   @Column('decimal', { precision: 10, scale: 2 })
   price!: number;
